@@ -62,22 +62,32 @@ class App(QMainWindow):
 
         s0_button = QPushButton('Pedestal', self)
         s0_button.setToolTip('Pedestal and noise sigma')
+        s0_button.setStyleSheet("background-color: green")
         s0_button.move(1150, 200)
         s0_button.resize(180, 40)
 
         s1_button = QPushButton('Threshold', self)
         s1_button.setToolTip('Toggle thresholds and hit windows')
+        s1_button.setStyleSheet("background-color: green")
         s1_button.move(1150, 260)
         s1_button.resize(180, 40)
 
         s2_button = QPushButton('CFD Threshold', self)
         s2_button.setToolTip('Toggle CFD threshold')
+        s2_button.setStyleSheet("background-color: green")
         s2_button.move(1150, 320)
         s2_button.resize(180, 40)
 
+        s4_button = QPushButton('Coincidence Window', self)
+        s4_button.setToolTip('Clear all measurements')
+        s4_button.setStyleSheet("background-color: green")
+        s4_button.move(1150, 380)
+        s4_button.resize(180, 40)
+
         s3_button = QPushButton('CLEAR', self)
         s3_button.setToolTip('Clear all measurements')
-        s3_button.move(1150, 380)
+        s3_button.setStyleSheet("background-color: orange")
+        s3_button.move(1150, 440)
         s3_button.resize(180, 40)
 
         self.label.move(40, 20)
@@ -91,6 +101,8 @@ class App(QMainWindow):
         s0_button.clicked.connect(self.togglePedestalClicked)
         s1_button.clicked.connect(self.toggleHitThresholdClicked)
         s2_button.clicked.connect(self.toggleCFDThresholdClicked)
+        s4_button.clicked.connect(self.toggleCoincidenceWindowClicked)
+
         s3_button.clicked.connect(self.clearAll)
 
         self.show()
@@ -117,6 +129,10 @@ class App(QMainWindow):
 
     def toggleCFDThresholdClicked(self):
         self.m.toggleCFDThreshold()
+        self.label.setText("")
+
+    def toggleCoincidenceWindowClicked(self):
+        self.m.toggleCoincidenceWindow()
         self.label.setText("")
 
     def clearAll(self):
@@ -148,6 +164,9 @@ class PlotCanvas(FigureCanvas):
         self.showCFDThreshold = False
         self.cfdThresholdLine = list()
         self.nCFDThresholdClicks = 0
+
+        self.nToggleCoincidenceWindowClicks = 0
+        self.coincidenceWindowRegions = list()
 
         self.dt = 0.2
         self.nsamples = 1024
@@ -186,6 +205,9 @@ class PlotCanvas(FigureCanvas):
         self.baseline2 = []
         self.noiseSigma2 = []
 
+        self.coincidenceWindowLowerLim = 10
+        self.coincidenceWindowUpperLim = 50
+
         self.matchedHitList = []
 
         fig = Figure(figsize=(width, height), dpi=dpi)
@@ -209,6 +231,7 @@ class PlotCanvas(FigureCanvas):
         self.showHitThreshold = False
         self.showCFDThreshold = False
         self.nCFDThresholdClicks = 0
+        self.nToggleCoincidenceWindowClicks = 0
 
         [self.t1, self.data1, self.true_data1] = swg.aDigitizedTrigger(dt=self.dt,
                                                                        nsamples=self.nsamples,
@@ -241,14 +264,14 @@ class PlotCanvas(FigureCanvas):
         ax = self.figure.add_subplot(211)
         ax.plot(self.t1, self.data1)
         ax.set_xlabel('Time (ns)')
-        ax.set_ylabel('Upstream (V)')
+        ax.set_ylabel('Upstream (ADC)')
         ax.set_xlim((0, self.nsamples * self.dt))
         ax.set_ylim((self.offset, self.offset + (2 ** self.nBits)))
 
         ax = self.figure.add_subplot(212)
         ax.plot(self.t2, self.data2)
         ax.set_xlabel('Time (ns)')
-        ax.set_ylabel('Downstream (V)')
+        ax.set_ylabel('Downstream (ADC)')
         ax.set_xlim((0, self.nsamples * self.dt))
         ax.set_ylim((self.offset, self.offset + (2 ** self.nBits)))
 
@@ -353,8 +376,8 @@ class PlotCanvas(FigureCanvas):
 
         self.matchedHitList = tm.TimeMatching(hitListUpstream=self.hitStartIndexList1 * self.dt,
                                               hitListDownstream=self.hitStartIndexList2 * self.dt,
-                                              coincidenceWindowLowerLim=10,
-                                              coincidenceWindowUpperLim=50)
+                                              coincidenceWindowLowerLim=self.coincidenceWindowLowerLim,
+                                              coincidenceWindowUpperLim=self.coincidenceWindowUpperLim)
 
         ax = self.figure.add_subplot(211)
         if self.showToFRegions:
@@ -571,6 +594,79 @@ class PlotCanvas(FigureCanvas):
                 self.cfdThresholdLine.append(peakDot)
                 self.cfdThresholdLine.append(intersecDot)
                 self.cfdThresholdLine.append(txt)
+
+        self.draw()
+
+    def toggleCoincidenceWindow(self):
+        self.nToggleCoincidenceWindowClicks = self.nToggleCoincidenceWindowClicks + 1
+
+        if not self.foundHits:
+            self.showHitLines = not self.showHitLines
+            self.findHits()
+
+        nHitsUpstream = np.size(self.hitStartIndexList1)
+        if (self.nToggleCoincidenceWindowClicks > nHitsUpstream):
+            self.nToggleCoincidenceWindowClicks = 0
+            for regions in self.coincidenceWindowRegions:
+                regions.remove()
+            self.coincidenceWindowRegions = list()
+        else:
+            for regions in self.coincidenceWindowRegions:
+                regions.remove()
+            self.coincidenceWindowRegions = list()
+
+            ax = self.figure.add_subplot(212)
+            x1 = self.hitStartIndexList1[
+                     self.nToggleCoincidenceWindowClicks - 1] * self.dt + self.coincidenceWindowLowerLim
+            x2 = self.hitStartIndexList1[
+                     self.nToggleCoincidenceWindowClicks - 1] * self.dt + self.coincidenceWindowUpperLim
+            if x2 > self.nsamples * self.dt:
+                x2 = self.nsamples * self.dt
+            tofusLineDashed = ax.axvline(x=self.hitStartIndexList1[self.nToggleCoincidenceWindowClicks - 1] * self.dt,
+                                         color='#EA4335', linestyle='--')
+            aToFRegion = ax.fill_betweenx(y=range(self.offset, self.offset + 2 ** self.nBits),
+                                          x1=x1,
+                                          x2=x2,
+                                          facecolor='#EA4335',
+                                          alpha=0.5)
+            txtLower = ax.text(x1 - 4,
+                          self.offset + 200,
+                          "t0 + {0:.1f} ns".format(self.coincidenceWindowLowerLim),
+                          rotation=90,
+                          size=14,
+                          horizontalalignment='left',
+                          verticalalignment='bottom',
+                          multialignment='center',
+                          color='#EA4335')
+
+            txtUpper = ax.text(x2 - 4,
+                          self.offset + 200,
+                          "t0 + {0:.1f} ns".format(self.coincidenceWindowUpperLim),
+                          rotation=90,
+                          size=14,
+                          horizontalalignment='left',
+                          verticalalignment='bottom',
+                          multialignment='center',
+                          color='#EA4335')
+            self.coincidenceWindowRegions.append(tofusLineDashed)
+            self.coincidenceWindowRegions.append(aToFRegion)
+            self.coincidenceWindowRegions.append(txtLower)
+            self.coincidenceWindowRegions.append(txtUpper)
+
+            ax = self.figure.add_subplot(211)
+            tofusLine = ax.axvline(x=self.hitStartIndexList1[self.nToggleCoincidenceWindowClicks - 1] * self.dt,
+                                   color='#EA4335')
+            tofIndicator = ax.text(self.hitStartIndexList1[self.nToggleCoincidenceWindowClicks - 1] * self.dt - 1,
+                                   self.offset + 1200,
+                                   "{0:.1f} ns".format(self.hitStartIndexList1[self.nToggleCoincidenceWindowClicks - 1] * self.dt),
+                                   rotation=90,
+                                   size=18,
+                                   horizontalalignment='right',
+                                   verticalalignment='top',
+                                   multialignment='center',
+                                   color='#F6553C')
+            self.coincidenceWindowRegions.append(tofusLine)
+            self.coincidenceWindowRegions.append(tofIndicator)
 
         self.draw()
 
