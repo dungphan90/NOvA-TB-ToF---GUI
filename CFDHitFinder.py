@@ -87,7 +87,7 @@ def DiscriminatorConditioning(p,
 def HitFinder(p,
               noiseSigmaInVolt,
               cfdThreshold=0.2,
-              durationTheshold=8,
+              durationTheshold=10,
               adjDurationThreshold=5,
               nNoiseSigmaThreshold=2.5,
               sgFilter=True,
@@ -103,6 +103,8 @@ def HitFinder(p,
                                                                  sgPolyOrder=sgPolyOrder)
 
     hitStartIndexList = []
+    hitPeakAmplitude = []
+    hitPeakIndexArray = []
     for i in range(1, np.size(hitLogic)):
         if ((not hitLogic[i - 1]) and hitLogic[i]) and hitLogic[i]:
             hitAmplitude = 1E100
@@ -122,5 +124,7 @@ def HitFinder(p,
                     break
 
             hitStartIndexList = np.append(hitStartIndexList, hitStartIndex)
+            hitPeakAmplitude = np.append(hitPeakAmplitude, hitAmplitude)
+            hitPeakIndexArray = np.append(hitPeakIndexArray, hitPeakIndex)
 
-    return [hitStartIndexList, hitLogic, baseline, noiseSigma]
+    return [hitStartIndexList, hitPeakAmplitude, hitPeakIndexArray, hitLogic, baseline, noiseSigma]

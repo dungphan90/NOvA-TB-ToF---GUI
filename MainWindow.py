@@ -75,8 +75,8 @@ class App(QMainWindow):
         s2_button.move(1150, 320)
         s2_button.resize(180, 40)
 
-        s3_button = QPushButton('Hit start-time', self)
-        s3_button.setToolTip('Toggle hit start time')
+        s3_button = QPushButton('CLEAR', self)
+        s3_button.setToolTip('Clear all measurements')
         s3_button.move(1150, 380)
         s3_button.resize(180, 40)
 
@@ -91,7 +91,7 @@ class App(QMainWindow):
         s0_button.clicked.connect(self.togglePedestalClicked)
         s1_button.clicked.connect(self.toggleHitThresholdClicked)
         s2_button.clicked.connect(self.toggleCFDThresholdClicked)
-        s3_button.clicked.connect(self.toggleHitStartTimeClicked)
+        s3_button.clicked.connect(self.clearAll)
 
         self.show()
 
@@ -119,8 +119,8 @@ class App(QMainWindow):
         self.m.toggleCFDThreshold()
         self.label.setText("")
 
-    def toggleHitStartTimeClicked(self):
-        self.m.toggleHitStartTime()
+    def clearAll(self):
+        self.m.clearAll()
         self.label.setText("")
 
 
@@ -145,12 +145,16 @@ class PlotCanvas(FigureCanvas):
         self.hitThresholdLine1 = list()
         self.hitThresholdLine2 = list()
 
+        self.showCFDThreshold = False
+        self.cfdThresholdLine = list()
+        self.nCFDThresholdClicks = 0
+
         self.dt = 0.2
         self.nsamples = 1024
         self.speAmplitude = 0.15
         self.noiseSigmaInVolt = 0.02
-        self.riseTime = 10
-        self.fallTime = 25
+        self.riseTime = 0.8
+        self.fallTime = 3
 
         self.nBits = 12
         self.voltMin = -0.8
@@ -158,7 +162,7 @@ class PlotCanvas(FigureCanvas):
         self.offset = 1000
 
         self.cfdThreshold = 0.4
-        self.nNoiseSigmaThreshold = 2.5
+        self.nNoiseSigmaThreshold = 3
 
         self.t1 = []
         self.data1 = []
@@ -169,11 +173,15 @@ class PlotCanvas(FigureCanvas):
         self.true_data2 = []
 
         self.hitStartIndexList1 = []
+        self.hitPeakAmplitude1 = []
+        self.hitPeakIndex1 = []
         self.hitLogic1 = []
         self.baseline1 = []
         self.noiseSigma1 = []
 
         self.hitStartIndexList2 = []
+        self.hitPeakAmplitude2 = []
+        self.hitPeakIndex2 = []
         self.hitLogic2 = []
         self.baseline2 = []
         self.noiseSigma2 = []
@@ -199,6 +207,8 @@ class PlotCanvas(FigureCanvas):
         self.showToFRegions = False
         self.showPedestal = False
         self.showHitThreshold = False
+        self.showCFDThreshold = False
+        self.nCFDThresholdClicks = 0
 
         [self.t1, self.data1, self.true_data1] = swg.aDigitizedTrigger(dt=self.dt,
                                                                        nsamples=self.nsamples,
@@ -244,11 +254,41 @@ class PlotCanvas(FigureCanvas):
 
         self.draw()
 
+    def clearAll(self):
+        self.showHitLines = False
+        self.foundHits = False
+        self.showToFRegions = False
+        self.showPedestal = False
+        self.showHitThreshold = False
+        self.showCFDThreshold = False
+        self.nCFDThresholdClicks = 0
+
+        self.figure.clear()
+        self.figure.tight_layout()
+
+        ax = self.figure.add_subplot(211)
+        ax.plot(self.t1, self.data1)
+        ax.set_xlabel('Time (ns)')
+        ax.set_ylabel('Upstream (V)')
+        ax.set_xlim((0, self.nsamples * self.dt))
+        ax.set_ylim((self.offset, self.offset + (2 ** self.nBits)))
+
+        ax = self.figure.add_subplot(212)
+        ax.plot(self.t2, self.data2)
+        ax.set_xlabel('Time (ns)')
+        ax.set_ylabel('Downstream (V)')
+        ax.set_xlim((0, self.nsamples * self.dt))
+        ax.set_ylim((self.offset, self.offset + (2 ** self.nBits)))
+
+        self.draw()
+
     def findHits(self):
         self.showHitLines = not self.showHitLines
 
         if not self.foundHits:
             [self.hitStartIndexList1,
+             self.hitPeakAmplitude1,
+             self.hitPeakIndex1,
              self.hitLogic1,
              self.baseline1,
              self.noiseSigma1] = cfd.HitFinder(p=self.data1,
@@ -257,6 +297,8 @@ class PlotCanvas(FigureCanvas):
                                                nNoiseSigmaThreshold=self.nNoiseSigmaThreshold)
 
             [self.hitStartIndexList2,
+             self.hitPeakAmplitude2,
+             self.hitPeakIndex2,
              self.hitLogic2,
              self.baseline2,
              self.noiseSigma2] = cfd.HitFinder(p=self.data2,
@@ -268,7 +310,15 @@ class PlotCanvas(FigureCanvas):
         if self.showHitLines:
             for x in self.hitStartIndexList1:
                 aHitLines = ax.axvline(x=x * self.dt, color='#F6553C')
+                txt = ax.text(x * self.dt - 1, self.offset + 1200, "{0:.1f} ns".format(x * self.dt),
+                              rotation=90,
+                              size=18,
+                              horizontalalignment='right',
+                              verticalalignment='top',
+                              multialignment='center',
+                              color='#F6553C')
                 self.hitLines1.append(aHitLines)
+                self.hitLines1.append(txt)
         else:
             for aHitLine in self.hitLines1:
                 aHitLine.remove()
@@ -278,7 +328,15 @@ class PlotCanvas(FigureCanvas):
         if self.showHitLines:
             for x in self.hitStartIndexList2:
                 aHitLines = ax.axvline(x=x * self.dt, color='#F6553C')
+                txt = ax.text(x * self.dt - 1, self.offset + 1200, "{0:.1f} ns".format(x * self.dt),
+                              rotation=90,
+                              size=18,
+                              horizontalalignment='right',
+                              verticalalignment='top',
+                              multialignment='center',
+                              color='#F6553C')
                 self.hitLines2.append(aHitLines)
+                self.hitLines2.append(txt)
         else:
             for aHitLine in self.hitLines2:
                 aHitLine.remove()
@@ -351,8 +409,16 @@ class PlotCanvas(FigureCanvas):
                                          y2=self.baseline1 + self.noiseSigma1,
                                          facecolor='#F36E19',
                                          alpha=0.7)
+            txt = ax.text(5, self.baseline1 + 200, "Baseline and Noise-band",
+                          rotation=0,
+                          size=18,
+                          horizontalalignment='left',
+                          verticalalignment='bottom',
+                          multialignment='center',
+                          color='#F36E19')
             self.pedestalLines1.append(pedLine)
             self.pedestalLines1.append(noiseBand1)
+            self.pedestalLines1.append(txt)
         else:
             for lines in self.pedestalLines1:
                 lines.remove()
@@ -366,15 +432,22 @@ class PlotCanvas(FigureCanvas):
                                          y2=self.baseline2 + self.noiseSigma2,
                                          facecolor='#F36E19',
                                          alpha=0.7)
+            txt = ax.text(5, self.baseline2 + 200, "Baseline and Noise-band",
+                          rotation=0,
+                          size=18,
+                          horizontalalignment='left',
+                          verticalalignment='bottom',
+                          multialignment='center',
+                          color='#F36E19')
             self.pedestalLines2.append(pedLine)
             self.pedestalLines2.append(noiseBand2)
+            self.pedestalLines2.append(txt)
         else:
             for lines in self.pedestalLines2:
                 lines.remove()
             self.pedestalLines2 = list()
 
         self.draw()
-
 
     def toggleHitThreshold(self):
         self.showHitThreshold = not self.showHitThreshold
@@ -409,7 +482,95 @@ class PlotCanvas(FigureCanvas):
                 lines.remove()
             self.hitThresholdLine2 = list()
 
+        self.draw()
 
+    def toggleCFDThreshold(self):
+        self.nCFDThresholdClicks = self.nCFDThresholdClicks + 1
+
+        if not self.foundHits:
+            self.showHitLines = not self.showHitLines
+            self.findHits()
+
+        nHitsUpstream = np.size(self.hitPeakAmplitude1)
+        nHitsDownstream = np.size(self.hitPeakAmplitude2)
+        if (self.nCFDThresholdClicks > (nHitsUpstream + nHitsDownstream)):
+            self.nCFDThresholdClicks = 0
+            self.showCFDThreshold = False
+            for lines in self.cfdThresholdLine:
+                lines.remove()
+            self.cfdThresholdLine = list()
+        else:
+            self.showCFDThreshold = True
+            if (self.nCFDThresholdClicks <= nHitsUpstream):
+                for lines in self.cfdThresholdLine:
+                    lines.remove()
+                self.cfdThresholdLine = list()
+
+                ax = self.figure.add_subplot(211)
+                baseline = ax.axhline(self.baseline1, color='#13874B')
+                peakline = ax.axhline(self.hitPeakAmplitude1[self.nCFDThresholdClicks - 1], color='#13874B')
+                amplitude = self.baseline1 - self.hitPeakAmplitude1[self.nCFDThresholdClicks - 1]
+                threshold = self.baseline1 - self.cfdThreshold * amplitude
+                thrshline = ax.axhline(threshold, color='#13874B')
+                peakDot, = ax.plot(self.hitPeakIndex1[self.nCFDThresholdClicks - 1] * self.dt,
+                                   self.hitPeakAmplitude1[self.nCFDThresholdClicks - 1],
+                                   'o',
+                                   color='#13874B')
+                intersecDot, = ax.plot(self.hitStartIndexList1[self.nCFDThresholdClicks - 1] * self.dt,
+                                       threshold,
+                                       'o',
+                                       color='#13874B')
+                txt = ax.text(self.hitStartIndexList1[self.nCFDThresholdClicks - 1] * self.dt - 15,
+                              threshold - 240,
+                              "{0:.1f}%".format(self.cfdThreshold * 100),
+                              rotation=0,
+                              size=14,
+                              horizontalalignment='left',
+                              verticalalignment='bottom',
+                              multialignment='center',
+                              color='#13874B')
+                self.cfdThresholdLine.append(baseline)
+                self.cfdThresholdLine.append(peakline)
+                self.cfdThresholdLine.append(thrshline)
+                self.cfdThresholdLine.append(peakDot)
+                self.cfdThresholdLine.append(intersecDot)
+                self.cfdThresholdLine.append(txt)
+            if (self.nCFDThresholdClicks > nHitsUpstream) and (
+                    self.nCFDThresholdClicks <= nHitsUpstream + nHitsDownstream):
+                for lines in self.cfdThresholdLine:
+                    lines.remove()
+                self.cfdThresholdLine = list()
+
+                ax = self.figure.add_subplot(212)
+                baseline = ax.axhline(self.baseline2, color='#13874B')
+                peakline = ax.axhline(self.hitPeakAmplitude2[self.nCFDThresholdClicks - 1 - nHitsUpstream],
+                                      color='#13874B')
+                amplitude = self.baseline2 - self.hitPeakAmplitude2[self.nCFDThresholdClicks - 1 - nHitsUpstream]
+                threshold = self.baseline2 - self.cfdThreshold * amplitude
+                thrshline = ax.axhline(threshold, color='#13874B')
+                peakDot, = ax.plot(self.hitPeakIndex2[self.nCFDThresholdClicks - 1 - nHitsUpstream] * self.dt,
+                                   self.hitPeakAmplitude2[self.nCFDThresholdClicks - 1 - nHitsUpstream],
+                                   'o',
+                                   color='#13874B')
+                intersecDot, = ax.plot(self.hitStartIndexList2[self.nCFDThresholdClicks - 1 - nHitsUpstream] * self.dt,
+                                       threshold,
+                                       'o',
+                                       color='#13874B')
+                txt = ax.text(self.hitStartIndexList2[self.nCFDThresholdClicks - 1 - nHitsUpstream] * self.dt - 15,
+                              threshold - 240,
+                              "{0:.1f}%".format(self.cfdThreshold * 100),
+                              rotation=0,
+                              size=14,
+                              horizontalalignment='left',
+                              verticalalignment='bottom',
+                              multialignment='center',
+                              color='#13874B')
+                self.cfdThresholdLine.append(baseline)
+                self.cfdThresholdLine.append(peakline)
+                self.cfdThresholdLine.append(thrshline)
+                self.cfdThresholdLine.append(peakDot)
+                self.cfdThresholdLine.append(intersecDot)
+                self.cfdThresholdLine.append(txt)
 
         self.draw()
 
