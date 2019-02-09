@@ -22,13 +22,13 @@ class App(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.m = PlotCanvas(self, width=12, height=11)
+        self.m = PlotCanvas(self, width=12, height=9.5)
         self.label = QLabel(self)
         self.left = 10
         self.top = 10
         self.title = 'NOvA TB ToF'
-        self.width = 1420
-        self.height = 1000
+        self.width = 1350
+        self.height = 840
 
         self.initUI()
 
@@ -40,54 +40,54 @@ class App(QMainWindow):
         p.setColor(self.backgroundRole(), Qt.white)
         self.setPalette(p)
 
-        self.m.move(-30, -60)
+        self.m.move(-30, -70)
 
         wg_button = QPushButton('WaveGen', self)
         wg_button.setToolTip('Generate SiPM waveforms')
         wg_button.setStyleSheet("background-color: red")
-        wg_button.move(1150, 20)
+        wg_button.move(1120, 20)
         wg_button.resize(180, 40)
 
         hf_button = QPushButton('HitFinder', self)
         hf_button.setToolTip('Toggle hit starts in waveforms')
         hf_button.setStyleSheet("background-color: red")
-        hf_button.move(1150, 80)
+        hf_button.move(1120, 80)
         hf_button.resize(180, 40)
 
         tof_button = QPushButton('TOF', self)
         tof_button.setToolTip('Toggle time-of-flight')
         tof_button.setStyleSheet("background-color: red")
-        tof_button.move(1150, 140)
+        tof_button.move(1120, 140)
         tof_button.resize(180, 40)
 
         s0_button = QPushButton('Pedestal', self)
         s0_button.setToolTip('Pedestal and noise sigma')
         s0_button.setStyleSheet("background-color: green")
-        s0_button.move(1150, 200)
+        s0_button.move(1120, 200)
         s0_button.resize(180, 40)
 
         s1_button = QPushButton('Threshold', self)
         s1_button.setToolTip('Toggle thresholds and hit windows')
         s1_button.setStyleSheet("background-color: green")
-        s1_button.move(1150, 260)
+        s1_button.move(1120, 260)
         s1_button.resize(180, 40)
 
         s2_button = QPushButton('CFD Threshold', self)
         s2_button.setToolTip('Toggle CFD threshold')
         s2_button.setStyleSheet("background-color: green")
-        s2_button.move(1150, 320)
+        s2_button.move(1120, 320)
         s2_button.resize(180, 40)
 
         s4_button = QPushButton('Coincidence Window', self)
         s4_button.setToolTip('Clear all measurements')
         s4_button.setStyleSheet("background-color: green")
-        s4_button.move(1150, 380)
+        s4_button.move(1120, 380)
         s4_button.resize(180, 40)
 
         s3_button = QPushButton('CLEAR', self)
         s3_button.setToolTip('Clear all measurements')
         s3_button.setStyleSheet("background-color: orange")
-        s3_button.move(1150, 440)
+        s3_button.move(1120, 440)
         s3_button.resize(180, 40)
 
         self.label.move(40, 20)
