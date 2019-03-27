@@ -13,9 +13,9 @@ def peResponse(t, delay, nphotons, speAmplitude, riseTime, fallTime):
 def waveGen(t, speAmplitude, noiseSigmaInVolt, riseTime, fallTime):
     response = np.array([0 for ti in t])
     true_response = np.array([0 for ti in t])
+    nhits = 0
 
     while True:
-        nhits = 0
         nhits = np.random.poisson(1)
         if nhits > 0:
             break
@@ -37,7 +37,7 @@ def waveGen(t, speAmplitude, noiseSigmaInVolt, riseTime, fallTime):
 
     response = true_response + np.array([np.random.normal(0, noiseSigmaInVolt) for ti in t])
 
-    return [response, true_response]
+    return [response, true_response, nhits]
 
 
 def getRawADC(p, res):
@@ -65,10 +65,11 @@ def aTrigger(dt, nsamples, speAmplitude, noiseSigmaInVolt, riseTime, fallTime):
 
 def aDigitizedTrigger(dt, nsamples, speAmplitude, noiseSigmaInVolt, riseTime, fallTime, nBits, voltMin, dynamicRange,
                       offset):
+    nhits = -1
     t = np.arange(0, nsamples*dt, dt)
-    [p, true_p] = waveGen(t, speAmplitude=speAmplitude, noiseSigmaInVolt=noiseSigmaInVolt, riseTime=riseTime,
+    [p, true_p, nhits] = waveGen(t, speAmplitude=speAmplitude, noiseSigmaInVolt=noiseSigmaInVolt, riseTime=riseTime,
                           fallTime=fallTime)
     digital_p = digitizeWave(p, nBits=nBits, voltMin=voltMin, dynamicRange=dynamicRange, offset=offset)
     digital_true_p = digitizeWave(true_p, nBits=nBits, voltMin=voltMin, dynamicRange=dynamicRange, offset=offset)
 
-    return [t, digital_p, digital_true_p]
+    return [t, digital_p, digital_true_p, nhits]
