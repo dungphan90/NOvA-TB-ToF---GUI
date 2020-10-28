@@ -72,4 +72,5 @@ def aDigitizedTrigger(dt, nsamples, speAmplitude, noiseSigmaInVolt, riseTime, fa
     digital_p = digitizeWave(p, nBits=nBits, voltMin=voltMin, dynamicRange=dynamicRange, offset=offset)
     digital_true_p = digitizeWave(true_p, nBits=nBits, voltMin=voltMin, dynamicRange=dynamicRange, offset=offset)
 
-    return [t, digital_p, digital_true_p, nhits]
+    # return [t, digital_p, digital_true_p, nhits]
+    return [t, digital_p, digital_true_p]
