@@ -1,0 +1,42 @@
+A simple explanation of the constant fraction discriminator can be found in this Wikipedia (https://en.wikipedia.org/wiki/Constant_fraction_discriminator). I wrote a simulation here to help visualize how the TOF CFD works. To assist the running of this simulation, I attached a bash script. Copy the bash script to a new folder and run it. Make sure you have QT5 and python3-venv installed beforehand. I used a python-venv so the needed pyqt5 dependencies don't mess up the native python3 on your system. I hope the simulation helps to visualize the process.
+
+To find a hit(s) in a waveform with CFD:
+1. (Optional) I smooth out the waveform. I believe I have implemented Golay-Savitzky filter and high-freq Fourier filter. 
+2. Finding the baseline ADC value and the noise-band by putting all sampled values to a 1D-histogram. The 1st-mode (peak) of this histogram is set as the baseline. The RMS is set as the noise-band.
+3. Next, waveform peaks will be searched for.
+4. ADC value difference between a waveform peak and the waveform baseline is set as the amplitude. Crawling backward from the peak, the algorithm looks for a point where the waveform starts to cross the CFD threshold (set beforehand, default at 40%). The time tick associated with this point is set as the hit start time.
+
+
+
+
+```
+#!/bin/bash
+
+# Make workspace folder
+export ROOT_FOLDER=`pwd`
+export WORKSPACE_NAME=${ROOT_FOLDER}/workspace
+if [ ! -d ${WORKSPACE_NAME} ]
+then
+    mkdir ${WORKSPACE_NAME}
+fi
+
+# Make new virtual python environment and install the dependencies
+cd ${WORKSPACE_NAME}
+python3 -m venv newson
+source ${WORKSPACE_NAME}/newson/bin/activate
+python3 -m pip install --upgrade numpy
+python3 -m pip install --upgrade scipy
+python3 -m pip install --upgrade matplotlib
+python3 -m pip install --upgrade pyqt5
+
+# Cloning TOF-GUI
+if [ ! -d ${WORKSPACE_NAME}/NOvA-TB-ToF---GUI ]
+then
+    cd ${WORKSPACE_NAME}
+    git clone https://github.com/dungducphan/NOvA-TB-ToF---GUI.git
+fi
+
+# Running the simulation
+cd ${WORKSPACE_NAME}/NOvA-TB-ToF---GUI
+python3 ./MainWindow.py
+```
